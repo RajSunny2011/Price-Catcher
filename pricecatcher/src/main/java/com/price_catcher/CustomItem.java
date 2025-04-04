@@ -27,8 +27,8 @@ abstract public class CustomItem implements Serializable {
         return priceHistory;
     }
     public void setThresholdPrice(double thresholdPrice) {
-        if (thresholdPrice <= 0){
-            this.thresholdPrice = Double.NaN;
+        if (thresholdPrice < 0){
+            this.thresholdPrice = 0;
             return;
         }
         this.thresholdPrice = thresholdPrice;

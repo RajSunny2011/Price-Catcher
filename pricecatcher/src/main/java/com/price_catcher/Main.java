@@ -1,7 +1,11 @@
 package com.price_catcher;
 
+import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.awt.SystemTray;
+import java.awt.Toolkit;
+import java.awt.TrayIcon;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.io.FileInputStream;
@@ -121,7 +125,7 @@ public class Main {
                         JOptionPane.showMessageDialog(frame, "Please enter a valid recheck interval.");
                         return;
                     }
-                    new RecheckTask(loadingLabel, intervalMinutes).execute();
+                    new RecheckTask(loadingLabel, intervalMinutes, itemsList).execute();
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(frame, "Please enter a valid number for the interval.");
                 }
@@ -185,10 +189,12 @@ public class Main {
     static class RecheckTask extends SwingWorker<Void, Void> {
         private final JLabel loadingLabel;
         private final int intervalMinutes;
+        private final List<CustomItem> itemsList;
 
-        public RecheckTask(JLabel loadingLabel, int intervalMinutes) {
+        public RecheckTask(JLabel loadingLabel, int intervalMinutes, List<CustomItem> itemsList) {
             this.loadingLabel = loadingLabel;
             this.intervalMinutes = intervalMinutes;
+            this.itemsList = itemsList;
         }
 
         @Override
@@ -196,7 +202,6 @@ public class Main {
             while (true) {
                 // Recheck prices for all items
                 for (CustomItem item : itemsList) {
-                    // Show loading indicator
                     SwingUtilities.invokeLater(() -> loadingLabel.setVisible(true));
                     try {
                         double newPrice = item.fetchPrice();
@@ -207,8 +212,11 @@ public class Main {
                                 }
                             }
                         });
+                        if (newPrice < item.getThresholdPrice()) {
+                            showDesktopNotification(item, newPrice);
+                        }
                     } catch (Exception ex) {
-                        System.out.println("Error fetching price for " + item.url);
+                        System.out.println("Error fetching price for " + item.url.toString());
                     }
                 }
 
@@ -219,6 +227,27 @@ public class Main {
                 } catch (InterruptedException e) {
                     System.out.println(e.getMessage());
                 }
+            }
+        }
+
+        // Method to display a desktop notification
+        private void showDesktopNotification(CustomItem item, double newPrice) {
+            if (SystemTray.isSupported()) {
+                SystemTray tray = SystemTray.getSystemTray();
+                TrayIcon trayIcon = new TrayIcon(Toolkit.getDefaultToolkit().getImage("icon.png"), "Price Tracker");
+                try {
+                    tray.add(trayIcon);
+                    trayIcon.displayMessage("Price Alert", 
+                        "Price for " + item.url.toString() + " has fallen below the threshold! New Price: " + newPrice, 
+                        TrayIcon.MessageType.INFO);
+                } catch (AWTException e) {
+                    System.out.println(e.getMessage());
+                }
+            } else {
+                // If system tray is not supported, show a dialog instead
+                JOptionPane.showMessageDialog(null, 
+                    "Price for " + item.url.toString() + " has fallen below the threshold!\nNew Price: " + newPrice, 
+                    "Price Alert", JOptionPane.INFORMATION_MESSAGE);
             }
         }
     }

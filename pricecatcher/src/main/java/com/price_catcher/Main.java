@@ -3,6 +3,7 @@ package com.price_catcher;
 import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
@@ -14,6 +15,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -53,7 +55,7 @@ public class Main {
             inputPanel.add(recheckIntervalField);
             inputPanel.add(recheckButton);
 
-            // Table to display items and their prices
+            // Table to display items
             JTable itemTable = new JTable(tableModel);
             JScrollPane scrollPane = new JScrollPane(itemTable);
             // Set the width for each column
@@ -66,12 +68,11 @@ public class Main {
             itemTable.setFillsViewportHeight(true);
             itemTable.setFillsViewportHeight(true);
 
-            // Status indicator (loading spinner)
+            // Status indicator for loading
             JLabel loadingLabel = new JLabel("Rechecking prices...");
             loadingLabel.setVisible(false);  // Initially hidden
             inputPanel.add(loadingLabel);
 
-            // Adding components to frame
             frame.add(inputPanel, BorderLayout.NORTH);
             frame.add(scrollPane, BorderLayout.CENTER);
 
@@ -119,16 +120,17 @@ public class Main {
             });
 
             recheckButton.addActionListener((ActionEvent e) -> {
+                int intervalMinutes;
                 try {
-                    int intervalMinutes = Integer.parseInt(recheckIntervalField.getText());
-                    if (intervalMinutes <= 0) {
-                        JOptionPane.showMessageDialog(frame, "Please enter a valid recheck interval.");
-                        return;
-                    }
-                    new RecheckTask(loadingLabel, intervalMinutes, itemsList).execute();
+                    intervalMinutes = Integer.parseInt(recheckIntervalField.getText());
                 } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(frame, "Please enter a valid number for the interval.");
+                    intervalMinutes = 0;
+                }    
+                if (intervalMinutes < 0) {
+                    JOptionPane.showMessageDialog(frame, "Please enter a valid recheck interval.");
+                    return;
                 }
+                new RecheckTask(loadingLabel, intervalMinutes, itemsList).execute();
             });
 
             itemTable.addMouseListener(new MouseAdapter() {
@@ -155,24 +157,31 @@ public class Main {
     }
 
     private static void openItemDetailsWindow(CustomItem item) {
-        // Create a new JFrame to display item details
         JFrame detailsFrame = new JFrame("Item Details - " + item.website);
         detailsFrame.setLayout(new BorderLayout(10, 10));
-        
-        // Create a panel to display item information
         JPanel detailsPanel = new JPanel();
-        detailsPanel.setLayout(new FlowLayout());
-        detailsPanel.add(new JLabel("Website: " + item.website));
-        detailsPanel.add(new JLabel("URL: " + item.url));
-        // detailsPanel.add(new JLabel("Price: " + item.getPrice()));
-    
-        // Add any other relevant details you want to display
-        detailsPanel.add(new JLabel("More information:"));
-        detailsPanel.add(new JLabel("Item details about"));  // Assuming you have a method to get extra info
+        detailsPanel.setLayout(new GridLayout(0, 2, 1, 0));
+        List<Double> priceHistory = new ArrayList<>();
+        for (double price : item.getPriceHistory()) {
+            priceHistory.add(price);
+        }
+
+        // Add components to the panel
+        detailsPanel.add(new JLabel("Item URL:"));
+        detailsPanel.add(new JLabel(item.url.toString()));
+        detailsPanel.add(new JLabel("Price:"));
+        detailsPanel.add(new JLabel(String.valueOf(item.getPrice())));
+        detailsPanel.add(new JLabel("Threshold Price:"));
+        detailsPanel.add(new JLabel(String.valueOf(item.getThresholdPrice())));
+        detailsPanel.add(new JLabel("Price History:"));
+        detailsPanel.add(new JLabel(priceHistory.stream()
+                                    .filter(price -> price > 0)
+                                    .map(String::valueOf)
+                                    .collect(Collectors.joining(", "))));
         
         detailsFrame.add(detailsPanel, BorderLayout.CENTER);
-        detailsFrame.setSize(550, 300);  // Set the size of the details window
-        detailsFrame.setLocationRelativeTo(null);  // Center the window
+        detailsFrame.setSize(525, 300);
+        detailsFrame.setLocationRelativeTo(null);
         detailsFrame.setVisible(true);
     }
     
@@ -190,46 +199,51 @@ public class Main {
         private final JLabel loadingLabel;
         private final int intervalMinutes;
         private final List<CustomItem> itemsList;
-
+    
         public RecheckTask(JLabel loadingLabel, int intervalMinutes, List<CustomItem> itemsList) {
             this.loadingLabel = loadingLabel;
             this.intervalMinutes = intervalMinutes;
             this.itemsList = itemsList;
         }
-
+    
         @Override
         protected Void doInBackground() throws Exception {
-            while (true) {
-                // Recheck prices for all items
-                for (CustomItem item : itemsList) {
-                    SwingUtilities.invokeLater(() -> loadingLabel.setVisible(true));
-                    try {
-                        double newPrice = item.fetchPrice();
-                        SwingUtilities.invokeLater(() -> {
-                            for (int i = 0; i < tableModel.getRowCount(); i++) {
-                                if (tableModel.getValueAt(i, 1).equals(item.url)) {
-                                    tableModel.setValueAt(newPrice, i, 2);  // Update price column
-                                }
-                            }
-                        });
-                        if (newPrice < item.getThresholdPrice()) {
-                            showDesktopNotification(item, newPrice);
-                        }
-                    } catch (Exception ex) {
-                        System.out.println("Error fetching price for " + item.url.toString());
-                    }
-                }
-
-                // Sleep for the recheck interval (converted to milliseconds)
-                try {
-                    SwingUtilities.invokeLater(() -> loadingLabel.setVisible(false));
-                    Thread.sleep(intervalMinutes * 1000); // Sleep for the interval in milliseconds
-                } catch (InterruptedException e) {
-                    System.out.println(e.getMessage());
+            // If the interval is 0, meaning we only run the task once
+            if (intervalMinutes == 0) {
+                recheckPrices();
+            } else {
+                while (true) {
+                    recheckPrices();
+                    Thread.sleep(intervalMinutes * 60000);
                 }
             }
+            return null;
         }
-
+    
+        // Method to recheck the prices for all items
+        private void recheckPrices() {
+            for (CustomItem item : itemsList) {
+                SwingUtilities.invokeLater(() -> loadingLabel.setVisible(true));
+                try {
+                    double newPrice = item.fetchPrice();
+                    SwingUtilities.invokeLater(() -> {
+                        for (int i = 0; i < tableModel.getRowCount(); i++) {
+                            if (tableModel.getValueAt(i, 1).equals(item.url)) {
+                                tableModel.setValueAt(newPrice, i, 2);  // Update price column
+                            }
+                        }
+                    });
+                    // If the price is below the threshold, send a notification
+                    if (newPrice < item.getThresholdPrice()) {
+                        showDesktopNotification(item, newPrice);
+                    }
+                } catch (Exception ex) {
+                    System.out.println("Error fetching price for " + item.url);
+                }
+            }
+            SwingUtilities.invokeLater(() -> loadingLabel.setVisible(false));
+        }
+    
         // Method to display a desktop notification
         private void showDesktopNotification(CustomItem item, double newPrice) {
             if (SystemTray.isSupported()) {

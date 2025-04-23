@@ -75,8 +75,8 @@ public class AmazonItem extends CustomItem {
         }
         
         // Return the found price
+        priceHistoryIndex = (priceHistoryIndex + 1) % priceHistory.length;
         priceHistory[priceHistoryIndex] = price;
-        priceHistoryIndex = (priceHistoryIndex + 1) % priceHistory.length; // Circular buffer
         return price;
     }
 }

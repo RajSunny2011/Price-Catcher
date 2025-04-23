@@ -3,7 +3,9 @@ package com.price_catcher;
 import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
-import java.awt.GridLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
@@ -92,7 +94,13 @@ public class Main {
                     JOptionPane.showMessageDialog(frame, "Please enter a valid item URL.");
                 } else {
                     try {
-                        CustomItem item = new AmazonItem(url);
+                        CustomItem item;
+                        if (url.contains("amazon")) {
+                            item = new AmazonItem(url);
+                        } else {
+                            JOptionPane.showMessageDialog(frame, "Unsupported website. Please enter a valid URL.");
+                            return;
+                        }
                         itemsList.add(item);
                         // Show dialog for threshold price after adding the item
                         String thresholdPriceString = JOptionPane.showInputDialog(frame, "Enter threshold price for " + item.website, "Set Threshold Price", JOptionPane.PLAIN_MESSAGE);
@@ -160,29 +168,127 @@ public class Main {
         JFrame detailsFrame = new JFrame("Item Details - " + item.website);
         detailsFrame.setLayout(new BorderLayout(10, 10));
         JPanel detailsPanel = new JPanel();
-        detailsPanel.setLayout(new GridLayout(0, 2, 1, 0));
+        detailsPanel.setLayout(new GridBagLayout());  // Set to GridBagLayout
+        GridBagConstraints gbc = new GridBagConstraints();  // Create GridBagConstraints
+    
         List<Double> priceHistory = new ArrayList<>();
         for (double price : item.getPriceHistory()) {
             priceHistory.add(price);
         }
-
-        // Add components to the panel
-        detailsPanel.add(new JLabel("Item URL:"));
-        detailsPanel.add(new JLabel(item.url.toString()));
-        detailsPanel.add(new JLabel("Price:"));
-        detailsPanel.add(new JLabel(String.valueOf(item.getPrice())));
-        detailsPanel.add(new JLabel("Threshold Price:"));
-        detailsPanel.add(new JLabel(String.valueOf(item.getThresholdPrice())));
-        detailsPanel.add(new JLabel("Price History:"));
-        detailsPanel.add(new JLabel(priceHistory.stream()
-                                    .filter(price -> price > 0)
-                                    .map(String::valueOf)
-                                    .collect(Collectors.joining(", "))));
         
+        gbc.insets = new Insets(2, 2, 2, 2);  // Small gap between components
+    
+        // Price
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        detailsPanel.add(new JLabel("Price:"), gbc);
+        gbc.gridx = 1;
+        System.out.println("Price: " + item.getPrice());
+        System.out.println("Price History: " + priceHistory);
+        System.out.println("Price History Index: " + item.priceHistoryIndex);
+        detailsPanel.add(new JLabel(Double.toString(item.getPrice())), gbc);
+    
+        // Threshold Price
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        detailsPanel.add(new JLabel("Threshold Price:"), gbc);
+        gbc.gridx = 1;
+        detailsPanel.add(new JLabel(String.valueOf(item.getThresholdPrice())), gbc);
+    
+        // Price History
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        detailsPanel.add(new JLabel("Price History:"), gbc);
+    
+        gbc.gridx = 1;
+        String priceHistoryStr = priceHistory.stream()
+            .filter(price -> price > 0)
+            .map(String::valueOf)
+            .collect(Collectors.joining(", "));
+        detailsPanel.add(new JLabel(priceHistoryStr), gbc);
+    
+        // Field and button to update threshold price
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        detailsPanel.add(new JLabel("Update Threshold Price:"), gbc);
+    
+        JTextField thresholdField = new JTextField(10);
+        thresholdField.setText(Double.toString(item.getThresholdPrice()));
+        gbc.gridx = 1;
+        detailsPanel.add(thresholdField, gbc);
+        JButton updateThresholdButton = new JButton("Update");
+        gbc.gridx = 2;
+        detailsPanel.add(updateThresholdButton, gbc);
+    
+        // Action listener for updating the threshold price
+        updateThresholdButton.addActionListener((ActionEvent e) -> {
+            String newThresholdPriceStr = thresholdField.getText();
+            try {
+                double newThresholdPrice = Double.parseDouble(newThresholdPriceStr);
+                item.setThresholdPrice(newThresholdPrice);
+                JOptionPane.showMessageDialog(detailsFrame, "Threshold price updated to " + newThresholdPrice);
+                // Update the table model as well
+                updateTableForItem(item);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(detailsFrame, "Invalid price. Please enter a valid number.");
+            }
+        });
+    
+        // Add a delete button to remove the item
+        JButton deleteButton = new JButton("Delete Item");
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        gbc.gridwidth = 3;  // Make the delete button span across all columns
+        detailsPanel.add(deleteButton, gbc);
+    
+        // Action listener for deleting the item
+        deleteButton.addActionListener((ActionEvent e) -> {
+            int response = JOptionPane.showConfirmDialog(detailsFrame, 
+                "Are you sure you want to delete this item?", "Delete Item", JOptionPane.YES_NO_OPTION);
+            
+            if (response == JOptionPane.YES_OPTION) {
+                itemsList.remove(item);
+                // Update the table model and save the list
+                tableModel.removeRow(getRowForItem(item));
+                saveItemsToFile();
+                detailsFrame.dispose();  // Close the details window
+            }
+        });
+    
         detailsFrame.add(detailsPanel, BorderLayout.CENTER);
-        detailsFrame.setSize(525, 300);
+        detailsFrame.setSize(500, 200);  // Adjust size for new components
         detailsFrame.setLocationRelativeTo(null);
         detailsFrame.setVisible(true);
+        detailsFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);  // Close only the details window
+    }
+    
+    // Helper method to update the table row for the specific item
+    private static void updateTableForItem(CustomItem item) {
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            if (tableModel.getValueAt(i, 1).equals(item.url)) {
+                tableModel.setValueAt(item.getThresholdPrice(), i, 3);  // Update threshold column
+            }
+        }
+        saveItemsToFile();  // Save updated list to file
+    }
+    
+    // Helper method to save items to file
+    private static void saveItemsToFile() {
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("items.dat"))) {
+            out.writeObject(itemsList);
+        } catch (Exception ex) {
+            System.out.println("Error saving items: " + ex.getMessage());
+        }
+    }
+    
+    // Helper method to get the row index for an item in the table
+    private static int getRowForItem(CustomItem item) {
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            if (tableModel.getValueAt(i, 1).equals(item.url)) {
+                return i;
+            }
+        }
+        return -1;  // Return -1 if the item is not found
     }
     
     private static CustomItem getItemByURL(String url) {

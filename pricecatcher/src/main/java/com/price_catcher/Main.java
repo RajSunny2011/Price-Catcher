@@ -62,7 +62,7 @@ public class Main {
             JScrollPane scrollPane = new JScrollPane(itemTable);
             // Set the width for each column
             TableColumn column1 = itemTable.getColumnModel().getColumn(0);
-            column1.setPreferredWidth(150);
+            column1.setPreferredWidth(50);
             TableColumn column2 = itemTable.getColumnModel().getColumn(1);
             column2.setPreferredWidth(300);
             TableColumn column3 = itemTable.getColumnModel().getColumn(2);
@@ -97,6 +97,10 @@ public class Main {
                         CustomItem item;
                         if (url.contains("amazon")) {
                             item = new AmazonItem(url);
+                        } else if (url.contains("croma")) {
+                            item = new CromaItem(url);
+                        } else if (url.contains("flipkart")) {
+                            item = new FlipkartItem(url);
                         } else {
                             JOptionPane.showMessageDialog(frame, "Unsupported website. Please enter a valid URL.");
                             return;

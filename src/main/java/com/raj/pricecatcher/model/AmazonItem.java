@@ -1,4 +1,4 @@
-package com.price_catcher;
+package com.raj.pricecatcher.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,7 +18,7 @@ public class AmazonItem extends CustomItem {
     }
 
     @Override
-    double fetchPrice() throws Exception {
+    public double fetchPrice() throws Exception {
         // URL of the Amazon product page
         String inputLine;
         double price = 0.0;
@@ -37,14 +37,14 @@ public class AmazonItem extends CustomItem {
 
                     // Look for the price parts (whole and fraction)
                     Element priceElement = document.select("span.a-price-whole").first();
-                    Element priceFractionElement = document.select("span.a-price-decimal").first();
-                    
+                    Element priceFractionElement = document.select("span.a-price-fraction").first();
+                    System.out.println(document.outerHtml());
                     if (priceElement != null && priceFractionElement != null) {
                         System.out.println("Price Element: " + priceElement);
                         System.out.println("Price Fraction Element: " + priceFractionElement);
                         String priceWhole = priceElement.text().replace(",", "").replace(".", "").trim();
                         String priceFraction = priceFractionElement.text().replace(",", "").replace(".", "").trim();
-                        String priceString = priceWhole + priceFraction;
+                        String priceString = priceWhole + '.' + priceFraction;
                         System.out.println(priceString);
                         try {
                             price = Double.parseDouble(priceString);

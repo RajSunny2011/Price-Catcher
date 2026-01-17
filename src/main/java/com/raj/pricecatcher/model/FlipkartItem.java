@@ -1,4 +1,4 @@
-package com.price_catcher;
+package com.raj.pricecatcher.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,23 +11,23 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-public class CromaItem extends CustomItem {
+public class FlipkartItem extends CustomItem {
 
-    public CromaItem(String urlString) throws Exception {
+    public FlipkartItem(String urlString) throws Exception {
         super(urlString);
-        if (!this.website.equals("www.croma.com")) {
+        if (!this.website.equals("www.flipkart.com")) {
             throw new Exception("Invalid URL: " + urlString);
         }
     }
 
     // Main method to fetch the price
     @Override
-    double fetchPrice() throws Exception {
+    public double fetchPrice() throws Exception {
         String inputLine;
         double price = 0.0;
-
+    
         try {
-            // Open connection to the Croma product page URL
+            // Open connection to the Flipkart product page URL
             URLConnection connection = url.openConnection();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
                 StringBuilder htmlContent = new StringBuilder();
@@ -37,48 +37,52 @@ public class CromaItem extends CustomItem {
                     htmlContent.append(inputLine);
                 }
                 
-                // Parse the full HTML content
+                // Parse the full HTML content using Jsoup
                 Document document = Jsoup.parse(htmlContent.toString());
                 
-                // Find the script tag containing the JSON data
+                // Find the first script tag containing the JSON-LD data
                 Element scriptElement = document.select("script[type=application/ld+json]").first();
                 if (scriptElement != null) {
                     // Get the JSON string from the script tag
                     String jsonData = scriptElement.html().trim();
+                    jsonData = jsonData.substring(jsonData.indexOf("{"), jsonData.lastIndexOf("}") + 1);
                     try {
                         // Parse the JSON string into a JSONObject
                         JSONObject jsonObject = new JSONObject(jsonData);
-                        
-                        // Extract the "offers" object
-                        JSONObject offers = jsonObject.getJSONObject("offers");
-
-                        // Extract the price (assuming the price field is directly inside "offers")
-                        if (offers.has("price")) {
-                            String priceString = offers.getString("price").replace(",", "").trim();
-                            price = Double.parseDouble(priceString);
+    
+                        // Check if the "offers" object exists and contains a price
+                        if (jsonObject.has("offers")) {
+                            JSONObject offers = jsonObject.getJSONObject("offers");
+                            if (offers.has("price")) {
+                                // Extract the price
+                                String priceString = offers.getBigInteger("price").toString();
+                                price = Double.parseDouble(priceString);
+                            }
                         }
-                    } catch (NumberFormatException | JSONException e) {
-                        System.out.println("Error parsing JSON with org.json: " + e.getMessage());
+                    } catch (JSONException | NumberFormatException e) {
+                        System.out.println("Error parsing JSON: " + e.getMessage());
                     }
+                } else {
+                    System.out.println("No JSON-LD script tag found!");
                 }
             } catch (IOException ioe) {
-                System.out.println("IOException: " + ioe);
-                return -1.0;
+                System.out.println("IOException: " + ioe.getMessage());
+                return -1.0; // Return -1 in case of I/O error
             }
         } catch (IOException e) {
-            System.out.println("Error with I/O operations: " + e);
-            return -1.0;
+            System.out.println("Error with I/O operations: " + e.getMessage());
+            return -1.0; // Return -1 in case of I/O error
         } catch (Exception e) {
-            System.out.println("Unexpected error: " + e);
-            return -1.0;
+            System.out.println("Unexpected error: " + e.getMessage());
+            return -1.0; // Return -1 for any unexpected errors
         }
-
-        // If price was not found, return -1
+    
+        // If the price wasn't found, return -1
         if (price == 0.0) {
             System.out.println("Price not found in the HTML content.");
             return -1.0;
         }
-
+    
         // Store the price and return it
         priceHistoryIndex = (priceHistoryIndex + 1) % priceHistory.length;
         priceHistory[priceHistoryIndex] = price;

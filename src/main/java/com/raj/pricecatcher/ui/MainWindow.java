@@ -1,4 +1,4 @@
-package com.price_catcher;
+package com.raj.pricecatcher.ui;
 
 import java.awt.AWTException;
 import java.awt.BorderLayout;
@@ -32,11 +32,16 @@ import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 
-public class Main {
+import com.raj.pricecatcher.model.AmazonItem;
+import com.raj.pricecatcher.model.CromaItem;
+import com.raj.pricecatcher.model.FlipkartItem;
+import com.raj.pricecatcher.model.CustomItem;
+
+public class MainWindow {
     private static List<CustomItem> itemsList = new ArrayList<>();
     private static final DefaultTableModel tableModel = new DefaultTableModel(new Object[]{"Site", "Item URL", "Price", "Threshold"}, 0);
 
-    public static void main(String[] args) {
+    public static void createAndShowGUI() {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Item Price Tracker");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

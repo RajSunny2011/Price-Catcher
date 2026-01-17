@@ -1,4 +1,4 @@
-package com.price_catcher;
+package com.raj.pricecatcher.model;
 
 import java.io.Serializable;
 import java.net.URI;
@@ -8,7 +8,7 @@ abstract public class CustomItem implements Serializable {
     public URL url;
     public String website;
     double[] priceHistory = new double[10];
-    int priceHistoryIndex = 0;
+    public int priceHistoryIndex = 0;
     double thresholdPrice = 0.0;
     public CustomItem(String urlString) throws Exception{
         this.url = new URI(urlString).toURL();
@@ -36,5 +36,5 @@ abstract public class CustomItem implements Serializable {
     public double getThresholdPrice() {
         return thresholdPrice;
     }
-    abstract double fetchPrice() throws Exception;
+    public abstract double fetchPrice() throws Exception;
 }

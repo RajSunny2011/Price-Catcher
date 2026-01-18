@@ -35,10 +35,10 @@ import javax.swing.table.TableColumn;
 import com.raj.pricecatcher.model.AmazonItem;
 import com.raj.pricecatcher.model.CromaItem;
 import com.raj.pricecatcher.model.FlipkartItem;
-import com.raj.pricecatcher.model.CustomItem;
+import com.raj.pricecatcher.model.Item;
 
 public class MainWindow {
-    private static List<CustomItem> itemsList = new ArrayList<>();
+    private static List<Item> itemsList = new ArrayList<>();
     private static final DefaultTableModel tableModel = new DefaultTableModel(new Object[]{"Site", "Item URL", "Price", "Threshold"}, 0);
 
     public static void createAndShowGUI() {
@@ -84,9 +84,9 @@ public class MainWindow {
             frame.add(scrollPane, BorderLayout.CENTER);
 
             try(ObjectInputStream in = new ObjectInputStream(new FileInputStream("items.dat"))) {
-                itemsList = (List<CustomItem>) in.readObject();
-                for (CustomItem item : itemsList) {
-                    tableModel.addRow(new Object[]{item.website, item.url, item.fetchPrice(), item.getThresholdPrice()});
+                itemsList = (List<Item>) in.readObject();
+                for (Item item : itemsList) {
+                    tableModel.addRow(new Object[]{item.website.toString(), item.url, item.fetchPrice(), item.getThresholdPrice()});
                 }
             } catch (Exception e) {
                 System.out.println("Error loading items: " + e.getMessage());
@@ -99,7 +99,7 @@ public class MainWindow {
                     JOptionPane.showMessageDialog(frame, "Please enter a valid item URL.");
                 } else {
                     try {
-                        CustomItem item;
+                        Item item;
                         if (url.contains("amazon")) {
                             item = new AmazonItem(url);
                         } else if (url.contains("croma")) {
@@ -158,7 +158,7 @@ public class MainWindow {
 
                     if (row >= 0 && col >= 0) {
                         String itemURL = tableModel.getValueAt(row, 1).toString();
-                        CustomItem selectedItem = getItemByURL(itemURL);
+                        Item selectedItem = getItemByURL(itemURL);
 
                         if (selectedItem != null) {
                             openItemDetailsWindow(selectedItem);
@@ -173,15 +173,16 @@ public class MainWindow {
         });
     }
 
-    private static void openItemDetailsWindow(CustomItem item) {
+    private static void openItemDetailsWindow(Item item) {
         JFrame detailsFrame = new JFrame("Item Details - " + item.website);
         detailsFrame.setLayout(new BorderLayout(10, 10));
         JPanel detailsPanel = new JPanel();
         detailsPanel.setLayout(new GridBagLayout());  // Set to GridBagLayout
         GridBagConstraints gbc = new GridBagConstraints();  // Create GridBagConstraints
     
+        double[] priceHistoryArray = item.getPriceHistory();
         List<Double> priceHistory = new ArrayList<>();
-        for (double price : item.getPriceHistory()) {
+        for (double price : priceHistoryArray) {
             priceHistory.add(price);
         }
         
@@ -193,8 +194,8 @@ public class MainWindow {
         detailsPanel.add(new JLabel("Price:"), gbc);
         gbc.gridx = 1;
         System.out.println("Price: " + item.getPrice());
-        System.out.println("Price History: " + priceHistory);
-        System.out.println("Price History Index: " + item.priceHistoryIndex);
+        // System.out.println("Price History: " + priceHistory);
+        // System.out.println("Price History Index: " + item.priceHistoryIndex);
         detailsPanel.add(new JLabel(Double.toString(item.getPrice())), gbc);
     
         // Threshold Price
@@ -211,7 +212,7 @@ public class MainWindow {
     
         gbc.gridx = 1;
         String priceHistoryStr = priceHistory.stream()
-            .filter(price -> price > 0)
+            .filter(price -> price >= 0)
             .map(String::valueOf)
             .collect(Collectors.joining(", "));
         detailsPanel.add(new JLabel(priceHistoryStr), gbc);
@@ -272,7 +273,7 @@ public class MainWindow {
     }
     
     // Helper method to update the table row for the specific item
-    private static void updateTableForItem(CustomItem item) {
+    private static void updateTableForItem(Item item) {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             if (tableModel.getValueAt(i, 1).equals(item.url)) {
                 tableModel.setValueAt(item.getThresholdPrice(), i, 3);  // Update threshold column
@@ -291,7 +292,7 @@ public class MainWindow {
     }
     
     // Helper method to get the row index for an item in the table
-    private static int getRowForItem(CustomItem item) {
+    private static int getRowForItem(Item item) {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             if (tableModel.getValueAt(i, 1).equals(item.url)) {
                 return i;
@@ -300,8 +301,8 @@ public class MainWindow {
         return -1;  // Return -1 if the item is not found
     }
     
-    private static CustomItem getItemByURL(String url) {
-        for (CustomItem item : itemsList) {
+    private static Item getItemByURL(String url) {
+        for (Item item : itemsList) {
             if (item.getURL().equals(url)) {
                 return item;
             }
@@ -313,9 +314,9 @@ public class MainWindow {
     static class RecheckTask extends SwingWorker<Void, Void> {
         private final JLabel loadingLabel;
         private final int intervalMinutes;
-        private final List<CustomItem> itemsList;
+        private final List<Item> itemsList;
     
-        public RecheckTask(JLabel loadingLabel, int intervalMinutes, List<CustomItem> itemsList) {
+        public RecheckTask(JLabel loadingLabel, int intervalMinutes, List<Item> itemsList) {
             this.loadingLabel = loadingLabel;
             this.intervalMinutes = intervalMinutes;
             this.itemsList = itemsList;
@@ -337,7 +338,7 @@ public class MainWindow {
     
         // Method to recheck the prices for all items
         private void recheckPrices() {
-            for (CustomItem item : itemsList) {
+            for (Item item : itemsList) {
                 SwingUtilities.invokeLater(() -> loadingLabel.setVisible(true));
                 try {
                     double newPrice = item.fetchPrice();
@@ -360,7 +361,7 @@ public class MainWindow {
         }
     
         // Method to display a desktop notification
-        private void showDesktopNotification(CustomItem item, double newPrice) {
+        private void showDesktopNotification(Item item, double newPrice) {
             if (SystemTray.isSupported()) {
                 SystemTray tray = SystemTray.getSystemTray();
                 TrayIcon trayIcon = new TrayIcon(Toolkit.getDefaultToolkit().getImage("icon.png"), "Price Tracker");

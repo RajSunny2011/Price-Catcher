@@ -11,11 +11,11 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-public class CromaItem extends CustomItem {
+public class CromaItem extends Item {
 
     public CromaItem(String urlString) throws Exception {
         super(urlString);
-        if (!this.website.equals("www.croma.com")) {
+        if (!this.website.equals(Website.CROMA)) {
             throw new Exception("Invalid URL: " + urlString);
         }
     }
@@ -80,8 +80,7 @@ public class CromaItem extends CustomItem {
         }
 
         // Store the price and return it
-        priceHistoryIndex = (priceHistoryIndex + 1) % priceHistory.length;
-        priceHistory[priceHistoryIndex] = price;
+        this.updatePriceHistory(price);
         return price;
     }
 }

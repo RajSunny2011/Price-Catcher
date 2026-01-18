@@ -11,11 +11,11 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-public class FlipkartItem extends CustomItem {
+public class FlipkartItem extends Item {
 
     public FlipkartItem(String urlString) throws Exception {
         super(urlString);
-        if (!this.website.equals("www.flipkart.com")) {
+        if (!this.website.equals(Website.FLIPKART)) {
             throw new Exception("Invalid URL: " + urlString);
         }
     }
@@ -84,8 +84,7 @@ public class FlipkartItem extends CustomItem {
         }
     
         // Store the price and return it
-        priceHistoryIndex = (priceHistoryIndex + 1) % priceHistory.length;
-        priceHistory[priceHistoryIndex] = price;
+        updatePriceHistory(price);
         return price;
     }
 }

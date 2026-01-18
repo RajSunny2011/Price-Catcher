@@ -9,10 +9,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-public class AmazonItem extends CustomItem {
+public class AmazonItem extends Item {
     public AmazonItem(String urlString) throws Exception {
         super(urlString);
-        if (!this.website.equals("www.amazon.in")) {
+        if (!this.website.equals(Website.AMAZON)) {
             throw new Exception("Invalid URL: " + urlString);
         }
     }
@@ -75,8 +75,7 @@ public class AmazonItem extends CustomItem {
         }
         
         // Return the found price
-        priceHistoryIndex = (priceHistoryIndex + 1) % priceHistory.length;
-        priceHistory[priceHistoryIndex] = price;
+        this.updatePriceHistory(price);
         return price;
     }
 }

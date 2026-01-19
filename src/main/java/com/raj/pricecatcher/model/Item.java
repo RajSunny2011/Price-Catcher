@@ -4,11 +4,14 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URL;
 
+import com.raj.pricecatcher.service.PriceScraper;
+
 abstract public class Item implements Serializable {
-    public URL url;
-    public Website website;
+    URL url;
+    Website website;
     double thresholdPrice = -1.0;
     PriceHistory priceHistory = new PriceHistory();
+    protected static PriceScraper sharedScraper;
 
     public Item(String urlString) throws Exception{
         this.url = new URI(urlString).toURL();
@@ -21,8 +24,11 @@ abstract public class Item implements Serializable {
         }
     }
 
-    public String getURL() {
-        return url.toString();
+    public URL getURL() {
+        return url;
+    }
+    public Website getWebsite() {
+        return website;
     }
     public double getPrice(){
         return priceHistory.getCurentPrice();
@@ -42,6 +48,21 @@ abstract public class Item implements Serializable {
 
     public void setThresholdPrice(double thresholdPrice) {
         this.thresholdPrice = thresholdPrice;
+    }
+
+    protected static void ensureScraperInitialized() {
+        if (sharedScraper == null) {
+            System.out.println("Initializing Playwright Engine...");
+            sharedScraper = new PriceScraper();
+        }
+    }
+
+    public static void shutdownScraper() {
+        if (sharedScraper != null) {
+            System.out.println("Shutting down Playwright...");
+            sharedScraper.close();
+            sharedScraper = null;
+        }
     }
 
     public abstract double fetchPrice() throws Exception;

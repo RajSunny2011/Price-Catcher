@@ -86,7 +86,7 @@ public class MainWindow {
             try(ObjectInputStream in = new ObjectInputStream(new FileInputStream("items.dat"))) {
                 itemsList = (List<Item>) in.readObject();
                 for (Item item : itemsList) {
-                    tableModel.addRow(new Object[]{item.website.toString(), item.url, item.fetchPrice(), item.getThresholdPrice()});
+                    tableModel.addRow(new Object[]{item.getWebsite().toString(), item.getURL(), item.fetchPrice(), item.getThresholdPrice()});
                 }
             } catch (Exception e) {
                 System.out.println("Error loading items: " + e.getMessage());
@@ -112,7 +112,7 @@ public class MainWindow {
                         }
                         itemsList.add(item);
                         // Show dialog for threshold price after adding the item
-                        String thresholdPriceString = JOptionPane.showInputDialog(frame, "Enter threshold price for " + item.website, "Set Threshold Price", JOptionPane.PLAIN_MESSAGE);
+                        String thresholdPriceString = JOptionPane.showInputDialog(frame, "Enter threshold price for " + item.getWebsite().toString(), "Set Threshold Price", JOptionPane.PLAIN_MESSAGE);
                         if (thresholdPriceString != null && !thresholdPriceString.isEmpty()) {
                             try {
                                 double thresholdPrice = Double.parseDouble(thresholdPriceString);
@@ -122,7 +122,7 @@ public class MainWindow {
                                 JOptionPane.showMessageDialog(frame, "Invalid threshold price. Please enter a valid number.");
                             }
                         }
-                        tableModel.addRow(new Object[]{item.website, item.url, item.fetchPrice(), item.getThresholdPrice()});
+                        tableModel.addRow(new Object[]{item.getWebsite(), item.getURL(), item.fetchPrice(), item.getThresholdPrice()});
                         try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("items.dat"))) {
                             out.writeObject(itemsList);
                         } catch (Exception ex) {
@@ -169,12 +169,16 @@ public class MainWindow {
 
             frame.setSize(900, 500);
             frame.setLocationRelativeTo(null);
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("Application closing... Shutting down Scraper Engine.");
+                Item.shutdownScraper();
+            }));
             frame.setVisible(true);
         });
     }
 
     private static void openItemDetailsWindow(Item item) {
-        JFrame detailsFrame = new JFrame("Item Details - " + item.website);
+        JFrame detailsFrame = new JFrame("Item Details - " + item.getWebsite().toString());
         detailsFrame.setLayout(new BorderLayout(10, 10));
         JPanel detailsPanel = new JPanel();
         detailsPanel.setLayout(new GridBagLayout());  // Set to GridBagLayout
@@ -275,7 +279,7 @@ public class MainWindow {
     // Helper method to update the table row for the specific item
     private static void updateTableForItem(Item item) {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (tableModel.getValueAt(i, 1).equals(item.url)) {
+            if (tableModel.getValueAt(i, 1).equals(item.getURL())) {
                 tableModel.setValueAt(item.getThresholdPrice(), i, 3);  // Update threshold column
             }
         }
@@ -294,7 +298,7 @@ public class MainWindow {
     // Helper method to get the row index for an item in the table
     private static int getRowForItem(Item item) {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (tableModel.getValueAt(i, 1).equals(item.url)) {
+            if (tableModel.getValueAt(i, 1).equals(item.getURL())) {
                 return i;
             }
         }
@@ -303,7 +307,7 @@ public class MainWindow {
     
     private static Item getItemByURL(String url) {
         for (Item item : itemsList) {
-            if (item.getURL().equals(url)) {
+            if (item.getURL().toString().equals(url)) {
                 return item;
             }
         }
@@ -344,7 +348,7 @@ public class MainWindow {
                     double newPrice = item.fetchPrice();
                     SwingUtilities.invokeLater(() -> {
                         for (int i = 0; i < tableModel.getRowCount(); i++) {
-                            if (tableModel.getValueAt(i, 1).equals(item.url)) {
+                            if (tableModel.getValueAt(i, 1).equals(item.getURL())) {
                                 tableModel.setValueAt(newPrice, i, 2);  // Update price column
                             }
                         }
@@ -354,7 +358,7 @@ public class MainWindow {
                         showDesktopNotification(item, newPrice);
                     }
                 } catch (Exception ex) {
-                    System.out.println("Error fetching price for " + item.url);
+                    System.out.println("Error fetching price for " + item.getURL());
                 }
             }
             SwingUtilities.invokeLater(() -> loadingLabel.setVisible(false));
@@ -368,7 +372,7 @@ public class MainWindow {
                 try {
                     tray.add(trayIcon);
                     trayIcon.displayMessage("Price Alert", 
-                        "Price for " + item.url.toString() + " has fallen below the threshold! New Price: " + newPrice, 
+                        "Price for " + item.getURL().toString() + " has fallen below the threshold! New Price: " + newPrice, 
                         TrayIcon.MessageType.INFO);
                 } catch (AWTException e) {
                     System.out.println(e.getMessage());
@@ -376,7 +380,7 @@ public class MainWindow {
             } else {
                 // If system tray is not supported, show a dialog instead
                 JOptionPane.showMessageDialog(null, 
-                    "Price for " + item.url.toString() + " has fallen below the threshold!\nNew Price: " + newPrice, 
+                    "Price for " + item.getURL().toString() + " has fallen below the threshold!\nNew Price: " + newPrice, 
                     "Price Alert", JOptionPane.INFORMATION_MESSAGE);
             }
         }
